@@ -1,0 +1,77 @@
+OPERATORS
+	A + B
+	A - B
+	A * B
+	A / B
+	A % B
+	A ** B
+		-A to the power of B
+	not A
+		-for unsigned integers: flips all bits, remains an integer
+		-for booleans: toggles boolean value, remains a boolean
+	neg A
+		-for signed integers and floats: flips sign
+	A []
+		-dereference A by one level, which must be a pointer at least one level deep
+	A [IDX]
+		-same as above but with a (size A * IDX) bit offset
+	A [T]
+		-if A is not a variable, T is a template parameter for template A
+		-EX: template add[T] { fun add[`T](a: `T, b: `T) `T { return a + b; } }
+			 impl add[int]; add[int](1, 2);
+	A .FIELD
+		-dereference A until by value (if necessary), then access FIELD
+	FUNC(...)
+		-regular function call
+	A ->FUNC(...)
+		-UFCS function call
+		-pass A as the first (think 'self') argument to FUNC, A will be auto-referenced if unambiguous
+		-auto-referecing applies only to the first argument, and only when using the UFCS form
+		-EX: fun add(a: int^, b: int^) int; 1->add(2^);
+	type A
+		-gets the type info from A, for comparing against another type
+		-For 'any', this is a runtime operation, all others are compiletime
+		 -trait instances do not store the underlying type they operate on, and so are compiletime as well
+	size A
+		-returns the number of bits in the type
+	cells A
+		-returns the number of cells/length of an array
+PSUEDO-OPERATORS
+	A::B
+		-A is a namespace part of the name of B
+		-namespaces can be manually created with this form
+		-EX: let NAME::thing = 4;
+	use A, B, ...
+		-use'd namespaces are preferred over scoped symbols
+		-priority: B -> A -> scoped symbols
+	::A
+		-A is explicitly ignoring any namespaces, directly referencing a scoped symbol
+	namespace A;
+		-all declared symbols in scope without '::B' form are prepended to 'A::B'
+	import A::B::C
+		-in this case, the namespace separators A and B refer to directories,
+		-C is a code file / library located in "$LIB_OR_CWD/A/B/C.?" that the program will depend on
+	impl A[...]
+		-instantiate a template
+	impl TRAIT for STRUCT
+		-instantiate a trait
+GENERAL NOTES
+	Literals can be referenced, they are converted to lvalues automatically
+		-EX: see above example
+TYPES
+	byte
+	bool
+	i8
+	u8
+	i16
+	u16
+	i32
+	u32
+	i64
+	u64
+	f32
+	f64
+	val
+	ptr
+	unk
+	any
