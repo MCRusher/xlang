@@ -124,6 +124,7 @@ proc makeID*(pos: int, text: string): Token = Token(pos: pos, kind: IDENTIFIER, 
 proc makeLit*(pos: int, num: int): Token = Token(pos: pos, kind: LITINT, inum: num)
 proc makeLit*(pos: int, num: float): Token = Token(pos: pos, kind: LITFLOAT, fnum: num)
 proc makeLit*(pos: int, str: string): Token = Token(pos: pos, kind: LITSTRING, text: str)
+proc makeBad*(pos: int, text: string): Token = Token(pos: pos, kind: BAD, text: text)
 
 proc `$`*(t: Token): string =
     case t.kind
