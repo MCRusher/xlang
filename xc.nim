@@ -1,12 +1,17 @@
 import token
 import reader
 
-let t = makeSyn(0, NULL)
+var r = makeReader("entry { var a = 4; }")
 
-var r = makeReader("123.45")
+#[
+while not r.atEnd():
+    let t = r.readToken()
+    discard stdin.readLine()
+    echo t
+]#
 
-let f = r.nextFloat()
+let tokens = r.readTokens()
+echo tokens
 
-echo t
-
-echo f
+#echo CompoundOperators
+#let x = CompoundOperators[4]

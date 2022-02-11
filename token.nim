@@ -1,136 +1,91 @@
 import strformat
 
 type
-    TokenType* = enum
+    TokenType* = enum  
+#BEGIN COMPOUND OPERATORS
+        EQUALS_EQUALS#must be first
+        NOT_EQUALS,#must be last
+#BEGIN SINGLE OPERATORS
+        LCURLY,#must be first
+        RCURLY,
+        EQUALS,
+        SEMICOLON,#must be last
+#BEGIN KEYWORDS
         LET,
         VAR,
-        CONST,
-        EQUALS,
-        ADD,
-        SUB,
-        MUL,
-        POW,
-        DIV,
-        MOD,
-        NOT,
-        LESS,
-        GREATER,
-        EQUALS_EQUALS,
-        NOT_EQUALS,
-        LESS_EQUALS,
-        GREATER_EQUALS,
-        LPAREN,
-        RPAREN,
-        LSBRACE,
-        RSBRACE,
-        LCURLY,
-        RCURLY,
-        TRAIT,
-        IMPL,
-        FOR,
-        WHILE,
-        IF,
-        ELIF,
-        ELSE,
-        RETURN,
-        COLON,
-        NAMESPACE,
-        DOT,
-        ARROW,
-        DEREF,
-        REF,
-        PUBLIC,
-        IMPORT,
-        USE,
-        COMMA,
-        STRUCT,
-        ENUM,
-        AT,
-        TRUE,
-        FALSE,
+        ENTRY,
         NULL,
-        SEMICOLON,
+#BEGIN NAMED
         IDENTIFIER,
+        NAMESPACE,
         BAD,
+#BEGIN LITERAL
         LITINT,
         LITFLOAT,
-        LITSTRING
+        LITSTRING,
+const
+    BEGIN_COMPOUND = EQUALS_EQUALS
+    END_COMPOUND = NOT_EQUALS
+    BEGIN_SINGLE = LCURLY
+    END_SINGLE = SEMICOLON
+    BEGIN_KEYWORD = LET
+    END_KEYWORD = NULL
+    BEGIN_NAMED = IDENTIFIER
+    END_NAMED = BAD
+    BEGIN_LITERAL = LITINT
+    END_LITERAL = LITSTRING
 
+#causes discarding error (?)
+#template rangeOf(T: type): untyped = T.low .. T.high
+
+type
+    TokenKeywordType* = range[BEGIN_KEYWORD .. END_KEYWORD]
+    TokenCompoundOperatorType* = range[BEGIN_COMPOUND .. END_COMPOUND]
+    TokenSingleOperatorType* = range[BEGIN_SINGLE .. END_SINGLE]
+    TokenNamedType* = range[BEGIN_NAMED .. END_NAMED]
+    TokenLiteralType* = range[BEGIN_LITERAL .. END_LITERAL]
     Token* = object
         pos: int
         case kind: TokenType
-        of LET..SEMICOLON:
+        of TokenKeywordType.low .. TokenKeywordType.high,
+           TokenCompoundOperatorType.low .. TokenCompoundOperatorType.high,
+           TokenSingleOperatorType.low .. TokenSingleOperatorType.high:
             discard
-        of IDENTIFIER..BAD, LITSTRING:
+        of TokenNamedType.low .. TokenNamedType.high, LITSTRING:
             text: string
         of LITINT:
             inum: int
         of LITFLOAT:
             fnum: float
 
-const TokenNames = [
-    LET: "let",
-    VAR: "var",
-    CONST: "const",
-    EQUALS: "=",
-    ADD: "+",
-    SUB: "-",
-    MUL: "*",
-    POW: "**",
-    DIV: "/",
-    MOD: "%",
-    NOT: "not",
-    LESS: "<",
-    GREATER: ">",
+const TokenNames* = [
     EQUALS_EQUALS: "==",
     NOT_EQUALS: "!=",
-    LESS_EQUALS: "<=",
-    GREATER_EQUALS: ">=",
-    LPAREN: "(",
-    RPAREN: ")",
-    LSBRACE: "[",
-    RSBRACE: "]",
+    
     LCURLY: "{",
     RCURLY: "}",
-    TRAIT: "trait",
-    IMPL: "impl",
-    FOR: "for",
-    WHILE: "while",
-    IF: "if",
-    ELIF: "elif",
-    ELSE: "else",
-    RETURN: "return",
-    COLON: ":",
-    NAMESPACE: "::",
-    DOT: ".",
-    ARROW: "->",
-    DEREF: ".*",
-    REF: "^",
-    PUBLIC: "public",
-    IMPORT: "import",
-    USE: "use",
-    COMMA: ",",
-    STRUCT: "struct",
-    ENUM: "enum",
-    AT: "@",
-    TRUE: "true",
-    FALSE: "false",
+    EQUALS: "=",
+    SEMICOLON: ";",
+    
+    LET: "let",
+    VAR: "var",
+    ENTRY: "entry",
     NULL: "null",
-    SEMICOLON: ";"
 ]
 
-proc makeSyn*(pos: int, t: TokenType): Token = Token(pos: pos, kind: t)
-proc makeID*(pos: int, text: string): Token = Token(pos: pos, kind: IDENTIFIER, text: text)
-proc makeLit*(pos: int, num: int): Token = Token(pos: pos, kind: LITINT, inum: num)
-proc makeLit*(pos: int, num: float): Token = Token(pos: pos, kind: LITFLOAT, fnum: num)
-proc makeLit*(pos: int, str: string): Token = Token(pos: pos, kind: LITSTRING, text: str)
-proc makeBad*(pos: int, text: string): Token = Token(pos: pos, kind: BAD, text: text)
+proc makeTok*(pos: int, t: TokenType): Token = Token(pos: pos, kind: t)
+proc makeTok*(pos: int, t: TokenNamedType, val: string): Token = Token(pos: pos, kind: t, text: val)
+proc makeTok*(pos: int, val: string): Token = Token(pos: pos, kind: LITSTRING, text: val)
+proc makeTok*(pos: int, val: int): Token = Token(pos: pos, kind: LITINT, inum: val)
+proc makeTok*(pos: int, val: float): Token = Token(pos: pos, kind: LITFLOAT, fnum: val)
 
 proc `$`*(t: Token): string =
     case t.kind
-    of LET..SEMICOLON:
+    of TokenKeywordType.low .. TokenKeywordType.high,
+       TokenCompoundOperatorType.low .. TokenCompoundOperatorType.high,
+       TokenSingleOperatorType.low .. TokenSingleOperatorType.high:
         return fmt"({t.pos}|{t.kind}: {TokenNames[t.kind]})"
-    of IDENTIFIER..BAD:
+    of TokenNamedType.low .. TokenNamedType.high:
         return fmt"({t.pos}|{t.kind}: {t.text})"
     of LITINT:
         return fmt"({t.pos}|Int: {t.inum})"
