@@ -3,27 +3,59 @@ import strformat
 type
     TokenType* = enum  
 #BEGIN COMPOUND OPERATORS
-        EQUALS_EQUALS#must be first
+        EQUALS_EQUALS,#must be first
+        LESS_EQUALS,
+        GREATER_EQUALS,
+        DEREF,
+        ARROW,
+        NAMESPACE,
         NOT_EQUALS,#must be last
 #BEGIN SINGLE OPERATORS
         LCURLY,#must be first
         RCURLY,
+        LBRACK,
+        RBRACK,
+        LPAREN,
+        RPAREN,
         EQUALS,
+        LESS,
+        GREATER,
+        ADD,
+        SUB,
+        MUL,
+        DIV,
+        MOD,
+        REF,
+        DOT,
+        COLON,
+        COMMA,
         SEMICOLON,#must be last
 #BEGIN KEYWORDS
-        LET,
+        LET,#must be first
         VAR,
         ENTRY,
-        NULL,
+        NOT,
+        FUN,
+        USE,
+        IMPL,
+        FOR,
+        TEMPLATE,
+        RETURN,
+        STRUCT,
+        PUBLIC,
+        TRAIT,
+        IMPORT,
+        NULL,#must be last
 #BEGIN NAMED
-        IDENTIFIER,
-        NAMESPACE,
-        BAD,
+        IDENTIFIER,#must be first
+        BAD,#must be last
 #BEGIN LITERAL
-        LITINT,
+        LITINT,#must be first
         LITFLOAT,
-        LITSTRING,
-const
+        LITSTRING,#must be first
+#END_LITERAL
+        EOT,#end of tokens
+const #for clarity
     BEGIN_COMPOUND = EQUALS_EQUALS
     END_COMPOUND = NOT_EQUALS
     BEGIN_SINGLE = LCURLY
@@ -46,10 +78,10 @@ type
     TokenLiteralType* = range[BEGIN_LITERAL .. END_LITERAL]
     Token* = object
         pos: int
-        case kind: TokenType
+        case kind*: TokenType
         of TokenKeywordType.low .. TokenKeywordType.high,
            TokenCompoundOperatorType.low .. TokenCompoundOperatorType.high,
-           TokenSingleOperatorType.low .. TokenSingleOperatorType.high:
+           TokenSingleOperatorType.low .. TokenSingleOperatorType.high, EOT:
             discard
         of TokenNamedType.low .. TokenNamedType.high, LITSTRING:
             text: string
@@ -60,16 +92,47 @@ type
 
 const TokenNames* = [
     EQUALS_EQUALS: "==",
+    LESS_EQUALS: "<=",
+    GREATER_EQUALS: ">=",
+    DEREF: ".*",
+    ARROW: "->",
+    NAMESPACE: "::",
     NOT_EQUALS: "!=",
     
     LCURLY: "{",
     RCURLY: "}",
+    LBRACK: "[",
+    RBRACK: "]",
+    LPAREN: "(",
+    RPAREN: ")",
     EQUALS: "=",
+    LESS: "<",
+    GREATER: ">",
+    ADD: "+",
+    SUB: "-",
+    MUL: "*",
+    DIV: "/",
+    MOD: "%",
+    REF: "^",
+    DOT: ".",
+    COLON: ":",
+    COMMA: ",",
     SEMICOLON: ";",
     
     LET: "let",
     VAR: "var",
     ENTRY: "entry",
+    NOT: "not",
+    FUN: "fun",
+    USE: "use",
+    IMPL: "impl",
+    FOR: "for",
+    TEMPLATE: "template",
+    RETURN: "return",
+    STRUCT: "struct",
+    PUBLIC: "public",
+    TRAIT: "trait",
+    IMPORT: "import",
     NULL: "null",
 ]
 
@@ -93,3 +156,5 @@ proc `$`*(t: Token): string =
         return fmt"({t.pos}|Float: {t.fnum})"
     of LITSTRING:
         return fmt"({t.pos}|String: {t.text})"
+    of EOT:
+        return "(EOT)"
