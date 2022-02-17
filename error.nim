@@ -2,35 +2,34 @@ import strutils
 import strformat
 import terminal
 
-import filedata
+import data
 
 type
     Reporter* = object
         hadError*: bool
-        fd: ref FileData
 
-proc makeReporter*(fd: ref FileData): Reporter = Reporter(fd: fd)
+proc makeReporter*(): Reporter = Reporter()
 
 #internal utility that converts an absolute position in fd.data into useful error info
-proc getContext(self: Reporter, pos: int): tuple[line: string, lnum: int, lpos: int] =
+proc getContext(data: ReaderData): tuple[line: string, lnum: int, lpos: int] =
     #find which line of fd.data error is on
     var line_num = 1
-    for i in countup(0, pos-1):
-        if self.fd.data[i] == '\n':
+    for i in countup(0, data.pos-1):
+        if data.src[i] == '\n':
             line_num += 1
     #find the start of the line that error is on
-    var start = pos
-    while start > 0 and self.fd.data[start-1] != '\n':
+    var start = data.pos
+    while start > 0 and data.src[start-1] != '\n':
         start -= 1
     #find the end of the line that error is on
-    var stop = pos
-    while stop < self.fd.data.len-1 and self.fd.data[stop+1] != '\n':
+    var stop = data.pos
+    while stop < data.src.len-1 and data.src[stop+1] != '\n':
         stop += 1
-    return (self.fd.data[start .. stop], line_num, pos - start)
+    return (data.src[start .. stop], line_num, data.pos - start)
 
-proc report*(self: var Reporter, msg: string, pos: int, len: Positive = 1) =
-    let (line, line_num, line_pos) = self.getContext(pos)
-    stdout.styledWrite fgRed, &"Error: {msg}\nat line {line_num}, pos {line_pos}:\n"
+proc report*(self: var Reporter, data: ReaderData, msg: string, len: Positive = 1) =
+    let (line, line_num, line_pos) = getContext(data)
+    stdout.styledWrite fgRed, &"Error: {msg}\nin file \"{data.name}\" at line {line_num}, pos {line_pos}:\n"
     echo line
     styledEcho fgRed, &"{' '.repeat(line_pos)}{'^'.repeat(len)}"
     #styledEcho fgRed, &"Error: {msg}\nat line {line_num}, pos {line_pos}:\n{line}\n{'~'.repeat(line_pos)}^\n"

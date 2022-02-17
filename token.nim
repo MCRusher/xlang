@@ -29,6 +29,7 @@ type
         DOT,
         COLON,
         COMMA,
+        AT,
         SEMICOLON,#must be last
 #BEGIN KEYWORDS
         LET,#must be first
@@ -77,6 +78,7 @@ type
     TokenNamedType* = range[BEGIN_NAMED .. END_NAMED]
     TokenLiteralType* = range[BEGIN_LITERAL .. END_LITERAL]
     Token* = object
+        name: string
         pos: int
         case kind*: TokenType
         of TokenKeywordType.low .. TokenKeywordType.high,
@@ -117,6 +119,7 @@ const TokenNames* = [
     DOT: ".",
     COLON: ":",
     COMMA: ",",
+    AT: "@",
     SEMICOLON: ";",
     
     LET: "let",
@@ -136,25 +139,30 @@ const TokenNames* = [
     NULL: "null",
 ]
 
-proc makeTok*(pos: int, t: TokenType): Token = Token(pos: pos, kind: t)
-proc makeTok*(pos: int, t: TokenNamedType, val: string): Token = Token(pos: pos, kind: t, text: val)
-proc makeTok*(pos: int, val: string): Token = Token(pos: pos, kind: LITSTRING, text: val)
-proc makeTok*(pos: int, val: int): Token = Token(pos: pos, kind: LITINT, inum: val)
-proc makeTok*(pos: int, val: float): Token = Token(pos: pos, kind: LITFLOAT, fnum: val)
+proc makeTok*(name: string, pos: int, t: TokenType): Token =
+    return Token(name: name, pos: pos, kind: t)
+proc makeTok*(name: string, pos: int, t: TokenNamedType, val: string): Token =
+    return Token(name: name, pos: pos, kind: t, text: val)
+proc makeTok*(name: string, pos: int, val: string): Token =
+    return Token(name: name, pos: pos, kind: LITSTRING, text: val)
+proc makeTok*(name: string, pos: int, val: int): Token =
+    return Token(name: name, pos: pos, kind: LITINT, inum: val)
+proc makeTok*(name: string, pos: int, val: float): Token =
+    return Token(name: name, pos: pos, kind: LITFLOAT, fnum: val)
 
 proc `$`*(t: Token): string =
     case t.kind
     of TokenKeywordType.low .. TokenKeywordType.high,
        TokenCompoundOperatorType.low .. TokenCompoundOperatorType.high,
        TokenSingleOperatorType.low .. TokenSingleOperatorType.high:
-        return fmt"({t.pos}|{t.kind}: {TokenNames[t.kind]})"
+        return &"(\"{t.name}\":{t.pos}|{t.kind}: {TokenNames[t.kind]})"
     of TokenNamedType.low .. TokenNamedType.high:
-        return fmt"({t.pos}|{t.kind}: {t.text})"
+        return &"(\"{t.name}\":{t.pos}|{t.kind}: {t.text})"
     of LITINT:
-        return fmt"({t.pos}|Int: {t.inum})"
+        return &"(\"{t.name}\":{t.pos}|Int: {t.inum})"
     of LITFLOAT:
-        return fmt"({t.pos}|Float: {t.fnum})"
+        return &"(\"{t.name}\":{t.pos}|Float: {t.fnum})"
     of LITSTRING:
-        return fmt"({t.pos}|String: {t.text})"
+        return &"(\"{t.name}\":{t.pos}|String: {t.text})"
     of EOT:
         return "(EOT)"

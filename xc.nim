@@ -1,5 +1,4 @@
 import token as token_file
-import filedata
 import reader as reader_file
 import error
 
@@ -20,11 +19,9 @@ const src = """
     }
 """
 
-let fd = newFileData("<test_data>", src)
+var reader = makeReader("<test data>", src)
 
-var reader = makeReader(fd)
-
-var reporter = makeReporter(fd)
+var reporter = makeReporter()
 
 let tokens = reader.readTokens(reporter)
 if reporter.hadError:

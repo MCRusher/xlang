@@ -2,35 +2,50 @@ import options
 import strutils
 
 import token
-import filedata
+import data
 import error
 
 type
     Reader* = object
-        fd: ref FileData
-        pos*: int
+        fds: seq[ReaderData]
 
 const EOF = '\0'
 
-proc makeReader*(fd: ref FileData): Reader = Reader(fd: fd, pos: 0)
+proc makeReader*(name: string, src: string): Reader =
+    return Reader(fds: @[ReaderData(name: name, src: src, pos: 0)])
 
-proc atEnd*(self: Reader): bool = self.pos >= self.fd.data.len
+proc data(self: Reader): ReaderData =
+    return self.fds[self.fds.len-1]
+
+proc name(self: Reader): string =
+    return self.fds[self.fds.len-1].name
+
+proc src(self: Reader): string =
+    return self.fds[self.fds.len-1].src
+
+proc pos(self: var Reader): var int =
+    return self.fds[self.fds.len-1].pos
+
+proc pos(self: Reader): int =
+    return self.fds[self.fds.len-1].pos
+
+proc atEnd*(self: Reader): bool = self.pos >= self.src.len
 
 proc peek*(self: Reader, n: Natural = 0): char =
-    if self.pos + n >= self.fd.data.len:
+    if self.pos + n >= self.src.len:
         return EOF
     else:
-        return self.fd.data[self.pos + n]
+        return self.src[self.pos + n]
 
 proc peekStr*(self: Reader, n: Natural = 0): string =
     var len = self.pos + n
-    if len >= self.fd.data.len:
-        len = self.fd.data.len-1
-    return self.fd.data[self.pos..len]
+    if len >= self.src.len:
+        len = self.src.len-1
+    return self.src[self.pos .. len]
 
 proc next*(self: var Reader, n: Positive = 1) =
-    if self.pos + n >= self.fd.data.len:
-        self.pos = self.fd.data.len
+    if self.pos() + n >= self.src.len:
+        self.pos() = self.src.len
     else:
         self.pos += n
 
@@ -82,7 +97,7 @@ proc nextString*(self: var Reader): Option[string] =
             break
         elif self.atEnd():
             return none(string)
-    let str = self.fd.data[self.pos + 1 .. self.pos + offset - 2]
+    let str = self.src[self.pos + 1 .. self.pos + offset - 2]
     self.pos += offset
     return some(str)
 
@@ -122,17 +137,19 @@ proc nextBad*(self: var Reader): Option[string] =
     return some(str)
 
 proc readToken*(self: var Reader, reporter: var Reporter): Token =
+    let name = self.name
+    let pos = self.pos
     let c = self.peekStr(1)
     if c.len == 0:
-        return makeTok(self.pos, EOT)
+        return makeTok(name, pos, EOT)
     let comp_operator_id = TokenNames.find(c)
     if comp_operator_id != -1:
         self.next(2)
-        return makeTok(self.pos-2, TokenType(comp_operator_id))
+        return makeTok(name, pos, TokenType(comp_operator_id))
     let single_operator_id = TokenNames.find(c[0..0])
     if single_operator_id != -1:
         self.next()
-        return makeTok(self.pos-1, TokenType(single_operator_id))
+        return makeTok(name, pos, TokenType(single_operator_id))
     case c[0]
     of ' ','\t','\n':
         self.next()
@@ -140,33 +157,35 @@ proc readToken*(self: var Reader, reporter: var Reporter): Token =
         return self.readToken(reporter)
     else:
         #store starting position of token for error reporting
+        let name = self.name
         let pos = self.pos
         if self.peek().isDigit():
             let fnum = self.nextFloat()
             if fnum.isSome():
-                return makeTok(pos, fnum.get())
+                return makeTok(name, pos, fnum.get())
             let inum = self.nextInt()
             if inum.isSome():
-                return makeTok(pos, inum.get())
+                return makeTok(name, pos, inum.get())
             #emit error, should be unreachable
-            reporter.report(
-                "Internal Compiler Error: A sequence of digits should always be either an integer or a float", self.pos)
+            reporter.report(self.data,
+                "Internal Compiler Error: A sequence of digits should always be either an integer or a float")
             quit()
         else:
             let ident = self.nextIdentifier()
             if not ident.isSome():
-                reporter.report("Bad Token (this should collect all subsequent bad tokens as well in the future)", self.pos)
                 let bad = self.nextBad()
                 if not bad.isSome():
-                    reporter.report(
-                        "Internal Compiler Error: If token is not a valid identifier, it should be an invalid token", self.pos)
+                    reporter.report(self.data,
+                        "Internal Compiler Error: If token is not a valid identifier, it should be an invalid token")
                     quit()
-                return makeTok(pos, BAD, bad.get())
+                reporter.report(self.data,
+                    "Bad Token", bad.get().len)
+                return makeTok(name, pos, BAD, bad.get())
             let keyword_id = TokenNames.find(ident.get())
             if keyword_id != -1:
-                return makeTok(pos, TokenType(keyword_id))
+                return makeTok(name, pos, TokenType(keyword_id))
             else:
-                return makeTok(pos, IDENTIFIER, ident.get())
+                return makeTok(name, pos, IDENTIFIER, ident.get())
 
 proc readTokens*(self: var Reader, reporter: var Reporter): seq[Token] =
     var buf: seq[Token]
