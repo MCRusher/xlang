@@ -1,10 +1,11 @@
 type
-    ReaderData* = object
+    Data* = object
         #name of current file
         name*: string
         #blob of source code to work on
         src*: string
-        #current absolute position in the source code blob
-        pos*: int
-        #position of last filename change
-        file_pos*: int
+
+proc newData*(name: string, src: string): ref Data =
+    var data = new(Data)
+    data[] = Data(name: name, src: src)
+    return data

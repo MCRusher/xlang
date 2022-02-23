@@ -1,5 +1,7 @@
 import token as token_file
 import reader as reader_file
+import data as data_file
+import builder as builder_file
 import error
 #[
 const src = """
@@ -19,7 +21,9 @@ const src = """
     }
 """
 
-var reader = makeReader("<test data>", src)
+let data = newData("<test data>", src)
+
+var reader = makeReader(data)
 
 var reporter = makeReporter()
 
@@ -34,18 +38,24 @@ const src = """
 import test;
 """
 
-var reader = makeReader("<test>", src)
-var reporter = makeReporter()
+let data = newData("<test data>", src)
 
-reader.processImports(reporter)
+var reader = makeReader(data)
+var reporter = makeReporter()
 
 if reporter.hadError:
     echo "Error ocurred!"
     quit()
-echo reader.src
+echo reader.data.src
 
 let tokens = reader.readTokens(reporter)
 
 if reporter.hadError:
     echo "Error ocurred!"
 echo tokens
+
+var builder = makeBuilder(tokens)
+
+builder.build(reporter)
+
+echo builder.toks

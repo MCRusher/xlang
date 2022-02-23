@@ -1,5 +1,7 @@
 import strformat
 
+import data
+
 type
     TokenType* = enum  
 #BEGIN COMPOUND OPERATORS
@@ -78,9 +80,10 @@ type
     TokenSingleOperatorType* = range[BEGIN_SINGLE .. END_SINGLE]
     TokenNamedType* = range[BEGIN_NAMED .. END_NAMED]
     TokenLiteralType* = range[BEGIN_LITERAL .. END_LITERAL]
+    
     Token* = object
-        name: string
-        pos: int
+        data*: ref Data
+        pos*: int
         case kind*: TokenType
         of TokenKeywordType.low .. TokenKeywordType.high,
            TokenCompoundOperatorType.low .. TokenCompoundOperatorType.high,
@@ -140,30 +143,47 @@ const TokenNames* = [
     NULL: "null",
 ]
 
-proc makeTok*(name: string, pos: int, t: TokenType): Token =
-    return Token(name: name, pos: pos, kind: t)
-proc makeTok*(name: string, pos: int, t: TokenNamedType, val: string): Token =
-    return Token(name: name, pos: pos, kind: t, text: val)
-proc makeTok*(name: string, pos: int, val: string): Token =
-    return Token(name: name, pos: pos, kind: LITSTRING, text: val)
-proc makeTok*(name: string, pos: int, val: int): Token =
-    return Token(name: name, pos: pos, kind: LITINT, inum: val)
-proc makeTok*(name: string, pos: int, val: float): Token =
-    return Token(name: name, pos: pos, kind: LITFLOAT, fnum: val)
+proc makeTok*(data: ref Data, pos: int, t: TokenType): Token =
+    return Token(data: data, pos: pos, kind: t)
+proc makeTok*(data: ref Data, pos: int, t: TokenNamedType, val: string): Token =
+    return Token(data: data, pos: pos, kind: t, text: val)
+proc makeTok*(data: ref Data, pos: int, val: string): Token =
+    return Token(data: data, pos: pos, kind: LITSTRING, text: val)
+proc makeTok*(data: ref Data, pos: int, val: int): Token =
+    return Token(data: data, pos: pos, kind: LITINT, inum: val)
+proc makeTok*(data: ref Data, pos: int, val: float): Token =
+    return Token(data: data, pos: pos, kind: LITFLOAT, fnum: val)
+
+proc stringVal*(self: Token): string =
+    case self.kind
+    of TokenKeywordType.low .. TokenKeywordType.high,
+       TokenCompoundOperatorType.low .. TokenCompoundOperatorType.high,
+       TokenSingleOperatorType.low .. TokenSingleOperatorType.high:
+        return TokenNames[self.kind]
+    of TokenNamedType.low .. TokenNamedType.high:
+        return self.text
+    of LITINT:
+        return $self.inum
+    of LITFLOAT:
+        return $self.fnum
+    of LITSTRING:
+        return &"\"{self.text}\""
+    of EOT:#should not be printed
+        quit("stringVal called on EOT token")
 
 proc `$`*(t: Token): string =
     case t.kind
     of TokenKeywordType.low .. TokenKeywordType.high,
        TokenCompoundOperatorType.low .. TokenCompoundOperatorType.high,
        TokenSingleOperatorType.low .. TokenSingleOperatorType.high:
-        return &"(\"{t.name}\":{t.pos}|{t.kind}: {TokenNames[t.kind]})"
+        return &"(\"{t.data.name}\":{t.pos}|{t.kind}: {TokenNames[t.kind]})"
     of TokenNamedType.low .. TokenNamedType.high:
-        return &"(\"{t.name}\":{t.pos}|{t.kind}: {t.text})"
+        return &"(\"{t.data.name}\":{t.pos}|{t.kind}: {t.text})"
     of LITINT:
-        return &"(\"{t.name}\":{t.pos}|Int: {t.inum})"
+        return &"(\"{t.data.name}\":{t.pos}|Int: {t.inum})"
     of LITFLOAT:
-        return &"(\"{t.name}\":{t.pos}|Float: {t.fnum})"
+        return &"(\"{t.data.name}\":{t.pos}|Float: {t.fnum})"
     of LITSTRING:
-        return &"(\"{t.name}\":{t.pos}|String: {t.text})"
+        return &"(\"{t.data.name}\":{t.pos}|String: {t.text})"
     of EOT:
         return "(EOT)"
