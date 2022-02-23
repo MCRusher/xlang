@@ -30,10 +30,11 @@ proc getContext(data: ref Data, pos: Natural): tuple[line: string, lnum: int, lp
 
 proc report*(self: var Reporter, data: ref Data, pos: Natural, len: Positive, msg: string) =
     let (line, line_num, line_pos) = getContext(data, pos)
-    stdout.styledWrite fgRed, &"Error: {msg}\nin file \"{data.name}\" at line {line_num}, pos {line_pos}:\n"
-    echo line
-    styledEcho fgRed, &"{' '.repeat(line_pos)}{'^'.repeat(len)}"
-    #styledEcho fgRed, &"Error: {msg}\nat line {line_num}, pos {line_pos}:\n{line}\n{'~'.repeat(line_pos)}^\n"
+    stdout.styledWriteLine(
+        fgRed, "Error",
+        #add 1 to lpos to 1-index it instead of 0-index
+        resetStyle, &"[\"{data.name}\":{line_num}:{line_pos+1}]: {msg}\n{line}\n",
+        fgRed, &"{' '.repeat(line_pos)}{'^'.repeat(len)}")
     self.hadError = true
 
 proc report*(self: var Reporter, data: ref Data, pos: Natural, msg: string) = self.report(data, pos, 1, msg)

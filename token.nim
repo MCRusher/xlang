@@ -48,6 +48,13 @@ type
         PUBLIC,
         TRAIT,
         IMPORT,
+        AND,
+        OR,
+        XOR,
+        IF,
+        WHILE,
+        ELIF,
+        ELSE,
         NULL,#must be last
 #BEGIN NAMED
         IDENTIFIER,#must be first
@@ -90,11 +97,11 @@ type
            TokenSingleOperatorType.low .. TokenSingleOperatorType.high, EOT:
             discard
         of TokenNamedType.low .. TokenNamedType.high, LITSTRING:
-            text: string
+            text*: string
         of LITINT:
-            inum: int
+            inum*: int
         of LITFLOAT:
-            fnum: float
+            fnum*: float
 
 const TokenNames* = [
     EQUALS_EQUALS: "==",
@@ -140,6 +147,13 @@ const TokenNames* = [
     PUBLIC: "public",
     TRAIT: "trait",
     IMPORT: "import",
+    AND: "and",
+    OR: "or",
+    XOR: "xor",
+    IF: "if",
+    WHILE: "while",
+    ELIF: "elif",
+    ELSE: "else",
     NULL: "null",
 ]
 
