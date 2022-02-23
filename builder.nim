@@ -28,6 +28,12 @@ proc find(self: seq[Token], kind: TokenType): int =
             return i
     return -1
 
+proc contains(self: seq[TemplateData], name: string): bool =
+    for i in countup(0, self.len-1):
+        if self[i].name == name:
+            return true
+    return false
+
 proc peekType(self: Builder, n: Natural = 0): TokenType =
     if self.pos + n >= self.toks.len:
         return EOT
@@ -142,6 +148,26 @@ proc processTemplateDefs*(self: var Builder, reporter: var Reporter) =
             let temp = makeTemplate(temp_name, args, body)
             #add it to the templates definitions
             self.temps.add(temp)
+    self.pos = 0
+
+proc processTemplateImpls(self: var Builder, reporter: var Reporter) =
+    block outer:
+        while true:
+            self.pos = self.toks.find(IMPL)
+            if self.pos == -1:
+                break
+            let data = self.toks[self.pos].data
+            let pos = self.toks[self.pos].pos
+            const impl_len = TokenNames[IMPL].len
+            var offset = 1
+            if self.peekType(offset) != IDENTIFIER or:
+                reporter.report(data, pos, impl_len,
+                    "Expected template name after 'impl'")
+                break
+            if self.toks[self.pos + offset].text notin self.temps:
+                reporter.report(data, pos, impl_len,
+                    "Name is invalid (improve this error message)")
+                
     self.pos = 0
 
 proc build*(self: var Builder, reporter: var Reporter) =
