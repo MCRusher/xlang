@@ -49,6 +49,7 @@ type
         NULL,#must be last
 #BEGIN NAMED
         IDENTIFIER,#must be first
+        FILENAME,
         BAD,#must be last
 #BEGIN LITERAL
         LITINT,#must be first

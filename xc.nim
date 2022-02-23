@@ -1,7 +1,7 @@
 import token as token_file
 import reader as reader_file
 import error
-
+#[
 const src = """
     import std::idk;
     
@@ -27,4 +27,25 @@ let tokens = reader.readTokens(reporter)
 if reporter.hadError:
     echo "OH NO AN ERROR HAPPEN!!!!"
 
+echo tokens
+]#
+
+const src = """
+import test;
+"""
+
+var reader = makeReader("<test>", src)
+var reporter = makeReporter()
+
+reader.processImports(reporter)
+
+if reporter.hadError:
+    echo "Error ocurred!"
+    quit()
+echo reader.src
+
+let tokens = reader.readTokens(reporter)
+
+if reporter.hadError:
+    echo "Error ocurred!"
 echo tokens

@@ -11,21 +11,22 @@ type
 proc makeReporter*(): Reporter = Reporter()
 
 #internal utility that converts an absolute position in fd.data into useful error info
+#it's a bit broken right now
 proc getContext(data: ReaderData): tuple[line: string, lnum: int, lpos: int] =
     #find which line of fd.data error is on
     var line_num = 1
-    for i in countup(0, data.pos-1):
+    for i in countup(data.file_pos, data.pos-1):
         if data.src[i] == '\n':
             line_num += 1
     #find the start of the line that error is on
     var start = data.pos
-    while start > 0 and data.src[start-1] != '\n':
+    while start > data.file_pos and data.src[start-1] != '\n':
         start -= 1
     #find the end of the line that error is on
     var stop = data.pos
     while stop < data.src.len-1 and data.src[stop+1] != '\n':
         stop += 1
-    return (data.src[start .. stop], line_num, data.pos - start)
+    return (data.src[start .. stop], line_num, data.pos - start - data.file_pos)
 
 proc report*(self: var Reporter, data: ReaderData, msg: string, len: Positive = 1) =
     let (line, line_num, line_pos) = getContext(data)
