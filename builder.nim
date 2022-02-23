@@ -10,13 +10,15 @@ import error
 type
     TemplateData* = object
         name: string
+        args: seq[string]
         toks: seq[Token]
     Builder* = object
         toks*: seq[Token]
         temps*: seq[TemplateData]
         pos: int
 
-proc makeTemplate*(name: string, tokens: sink seq[Token]): TemplateData = TemplateData(name: name, toks: tokens)
+proc makeTemplate*(name: string, args: sink seq[string], tokens: sink seq[Token]): TemplateData =
+    return TemplateData(name: name, toks: tokens)
 proc makeBuilder*(tokens: sink seq[Token]): Builder =
     return Builder(toks: tokens, pos: 0)
 
@@ -32,7 +34,7 @@ proc peekType(self: Builder, n: Natural = 0): TokenType =
     else:
         return self.toks[self.pos + n].kind
 
-proc processImports*(self: var Builder, reporter: var Reporter): bool =
+proc processImports*(self: var Builder, reporter: var Reporter) =
     var names: seq[string]
     while true:
         self.pos = self.toks.find(IMPORT)
@@ -69,10 +71,9 @@ proc processImports*(self: var Builder, reporter: var Reporter): bool =
             reporter.report(data, pos, imp_len,
                 &"Failed to open/read file \"{system_filename}\"")
     self.pos = 0
-    return reporter.hadError
 
 #this is wrong currently since templates actually take arguments
-proc processTemplateDefs*(self: var Builder, reporter: var Reporter): bool =
+proc processTemplateDefs*(self: var Builder, reporter: var Reporter) =
     block outer:
         while true:
             self.pos = self.toks.find(TEMPLATE)
@@ -82,12 +83,36 @@ proc processTemplateDefs*(self: var Builder, reporter: var Reporter): bool =
             let pos = self.toks[self.pos].pos
             const temp_len = TokenNames[TEMPLATE].len
             var offset = 1
+            #chekc for name
             if self.peekType(offset) != IDENTIFIER:
                 reporter.report(data, pos, temp_len,
                     "Expected template name after 'template'")
                 break
             let temp_name = self.toks[self.pos + offset].text
             offset += 1
+            #check for arguments
+            if self.peekType(offset) != LPAREN:
+                reporter.report(data, pos, temp_len,
+                    "Expected '(' after 'template <name>'")
+                break
+            offset += 1
+            var args: seq[string]
+            #taking no arguments is allowed
+            while self.peekType(offset) != RPAREN:
+                let data = self.toks[self.pos + offset].data
+                let pos = self.toks[self.pos + offset].pos
+                if self.peekType(offset) != IDENTIFIER:
+                    reporter.report(data, pos,
+                        "Expected ')' or an argument in template argument list")
+                    break outer
+                #wrap argument in backticks for more efficient substitution later
+                args.add(&"`{self.toks[self.pos + offset].text}`")
+                offset += 1
+                #a leading comma is allowed
+                if self.peekType(offset) == COMMA:
+                    offset += 1
+            offset += 1
+            #check for body
             if self.peekType(offset) != LCURLY:
                 reporter.report(data, pos, temp_len,
                     "Expected '{' after 'template <name>'")
@@ -114,12 +139,12 @@ proc processTemplateDefs*(self: var Builder, reporter: var Reporter): bool =
             #delete entire template body from tokens
             self.toks.delete(self.pos .. self.pos + offset - 1)
             #construct a new template with the parsed data
-            let temp = makeTemplate(temp_name, body)
+            let temp = makeTemplate(temp_name, args, body)
             #add it to the templates definitions
             self.temps.add(temp)
     self.pos = 0
 
 proc build*(self: var Builder, reporter: var Reporter) =
-    discard
-        self.processImports(reporter) and
+        self.processImports(reporter)
         self.processTemplateDefs(reporter)
+        self.processTemplateImpls(reporter)
