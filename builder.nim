@@ -8,6 +8,18 @@ import reader
 import token
 import error
 
+
+#TODO: decouple Builder from toks to allow performing
+# parsing stages independently of internal state
+
+#1. process template definitions
+#2. process imports
+ #1. process template definitions for each import
+ #2. process imports for each import
+ #3. 1 & 2 are performed recursively
+#3. combine all the processed imports recursively
+#4. proccess trait definitions and implementations
+
 type
     TemplateData* = object
         args: seq[string]
@@ -49,15 +61,11 @@ proc processImports*(self: var Builder, reporter: var Reporter) =
                 "Expected filename after 'import'")
             break
         offset += 1
-        while self.peekType(offset) in [IDENTIFIER, NAMESPACE]:
-            offset += 1
         if self.peekType(offset) != SEMICOLON:
             reporter.report(data, pos, imp_len,
                 "Expected ';' after 'import <filename>'")
             break
-        var filename: string
-        for i in countup(self.pos+1, self.pos + offset-1):
-            filename.add(self.toks[i].stringVal())
+        var filename = self.toks[self.pos + offset-1].text
         self.toks.delete(self.pos .. self.pos + offset)
         #already included, nothing more to do
         if filename in names:
