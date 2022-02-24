@@ -2,6 +2,7 @@ import os
 import strformat
 import sequtils
 import strutils
+import tables
 
 import reader
 import token
@@ -9,30 +10,23 @@ import error
 
 type
     TemplateData* = object
-        name: string
         args: seq[string]
         toks: seq[Token]
     Builder* = object
         toks*: seq[Token]
-        temps*: seq[TemplateData]
+        temps*: Table[string, TemplateData]
         pos: int
 
-proc makeTemplate*(name: string, args: sink seq[string], tokens: sink seq[Token]): TemplateData =
-    return TemplateData(name: name, toks: tokens)
+proc makeTemplate*(args: sink seq[string], tokens: sink seq[Token]): TemplateData =
+    return TemplateData(args: args, toks: tokens)
 proc makeBuilder*(tokens: sink seq[Token]): Builder =
-    return Builder(toks: tokens, pos: 0)
+    return Builder(toks: tokens, temps: initTable[string, TemplateData](), pos: 0)
 
 proc find(self: seq[Token], kind: TokenType): int =
     for i in countup(0, self.len-1):
         if self[i].kind == kind:
             return i
     return -1
-
-proc contains(self: seq[TemplateData], name: string): bool =
-    for i in countup(0, self.len-1):
-        if self[i].name == name:
-            return true
-    return false
 
 proc peekType(self: Builder, n: Natural = 0): TokenType =
     if self.pos + n >= self.toks.len:
@@ -78,7 +72,6 @@ proc processImports*(self: var Builder, reporter: var Reporter) =
                 &"Failed to open/read file \"{system_filename}\"")
     self.pos = 0
 
-#this is wrong currently since templates actually take arguments
 proc processTemplateDefs*(self: var Builder, reporter: var Reporter) =
     block outer:
         while true:
@@ -145,9 +138,9 @@ proc processTemplateDefs*(self: var Builder, reporter: var Reporter) =
             #delete entire template body from tokens
             self.toks.delete(self.pos .. self.pos + offset - 1)
             #construct a new template with the parsed data
-            let temp = makeTemplate(temp_name, args, body)
+            let temp = makeTemplate(args, body)
             #add it to the templates definitions
-            self.temps.add(temp)
+            self.temps[temp_name] = temp
     self.pos = 0
 
 proc processTemplateImpls(self: var Builder, reporter: var Reporter) =
@@ -160,14 +153,14 @@ proc processTemplateImpls(self: var Builder, reporter: var Reporter) =
             let pos = self.toks[self.pos].pos
             const impl_len = TokenNames[IMPL].len
             var offset = 1
-            if self.peekType(offset) != IDENTIFIER or:
+            if self.peekType(offset) != IDENTIFIER:
                 reporter.report(data, pos, impl_len,
                     "Expected template name after 'impl'")
                 break
-            if self.toks[self.pos + offset].text notin self.temps:
+            let name_pos = self.temps.find(self.toks[self.pos + offset].text)
+            if name_pos == -1:
                 reporter.report(data, pos, impl_len,
                     "Name is invalid (improve this error message)")
-                
     self.pos = 0
 
 proc build*(self: var Builder, reporter: var Reporter) =

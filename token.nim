@@ -41,6 +41,7 @@ type
         FUN,
         USE,
         IMPL,
+        DEF,
         FOR,
         TEMPLATE,
         RETURN,
@@ -58,7 +59,6 @@ type
         NULL,#must be last
 #BEGIN NAMED
         IDENTIFIER,#must be first
-        FILENAME,
         BAD,#must be last
 #BEGIN LITERAL
         LITINT,#must be first
@@ -140,6 +140,7 @@ const TokenNames* = [
     FUN: "fun",
     USE: "use",
     IMPL: "impl",
+    DEF: "def",
     FOR: "for",
     TEMPLATE: "template",
     RETURN: "return",
