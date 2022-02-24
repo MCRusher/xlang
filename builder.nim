@@ -157,10 +157,31 @@ proc processTemplateImpls(self: var Builder, reporter: var Reporter) =
                 reporter.report(data, pos, impl_len,
                     "Expected template name after 'impl'")
                 break
-            let name_pos = self.temps.find(self.toks[self.pos + offset].text)
+            
+            let data = self.toks[self.pos + offset].data
+            let pos = self.toks[self.pos + offset].pos
+            let temp_name = self.toks[self.pos + offset].text
+            let name_pos = self.temps.find(temp_name)
             if name_pos == -1:
-                reporter.report(data, pos, impl_len,
-                    "Name is invalid (improve this error message)")
+                reporter.report(data, pos, temp_name.len,
+                    "template name \"{temp_name}\" is invalid.")
+                break outer
+            offset += 1
+            while self.peekType(offset) != RPAREN:
+                let data = self.toks[self.pos + offset].data
+                let pos = self.toks[self.pos + offset].pos
+                if self.peekType(offset) != IDENTIFIER:
+                    reporter.report(data, pos,
+                        "Expected ')' or an argument in template argument list")
+                    break outer
+                #wrap argument in backticks for more efficient substitution later
+                args.add(&"`{self.toks[self.pos + offset].text}`")
+                offset += 1
+                #a leading comma is allowed
+                if self.peekType(offset) == COMMA:
+                    offset += 1
+            offset += 1
+                
     self.pos = 0
 
 proc build*(self: var Builder, reporter: var Reporter) =
