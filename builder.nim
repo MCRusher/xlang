@@ -78,6 +78,7 @@ proc processImports*(self: var Builder, reporter: var Reporter) =
         except IOError:
             reporter.report(data, pos, imp_len,
                 &"Failed to open/read file \"{system_filename}\"")
+            break
     self.pos = 0
 
 proc processTemplateDefs*(self: var Builder, reporter: var Reporter) =

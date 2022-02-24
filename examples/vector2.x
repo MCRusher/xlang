@@ -1,45 +1,47 @@
-import Std::Io;
+import std::io;
 
-struct Vector2 {
-	x: float;
-	y: float;
-}
+template Vector2(T) {
+    struct Vector2<`T`> {
+	    x: `T`;
+	    y: `T`;
+    }
 
-fun Vector2::Make(x: float, y: float) Vector2 {
-	return Vector2{x: x, y: y};
-}
+    fun Vector2<`T`>::make(x: `T`, y: `T`) Vector2<`T`> {
+	    return Vector2<`T`>{x: x, y: y};
+    }
 
-@[bind_op: "+"]
-fun Add(v: let Vector2, w: let Vector2) Vector2 {
-	return Vector2{x: v.x + w.x, y: v.y + w.y}; 
-}
+    @[bind_op: "+"]
+    fun add(v: Vector2<`T`>, w: Vector2<`T`>) Vector2<`T`> {
+	    return Vector2<`T`>{x: v.x + w.x, y: v.y + w.y}; 
+    }
 
-impl Std::Io::Display for Vector2 {
-	fun WriteTo(let self, out: Output) bool {
-		return
-			out->Write('(')
-		and self.x->WriteTo(out: out)
-		and out->Write(',')
-		and self.y->WriteTo(out: out)
-		and out->Write(')');
-	}
+    def std::io::Display for Vector2<`T`> {
+	    fun writeTo(let self, out: Output) bool {
+		    return
+			    out->write('(')
+		    and self.x->writeTo(out: out)
+		    and out->write(',')
+		    and self.y->writeTo(out: out)
+		    and out->write(')');
+	    }
+    }
 }
 
 entry {
-	let V = Vector2::Make(x: 1, y: 1);
-	let W = Vector2::Make(x: -1, y: -1);
+	let V = Vector2::make(x: 1, y: 1);
+	let W = Vector2::make(x: -1, y: -1);
 	let X = V + W;
 	
-	var out = Std::Io::StdOutput::Make() as Output;
+	var out = std::io::StdOutput::make() as std::io::Output;
 	
-	out->WriteFmt("_ + _ = _\n", Display[V, W, X]);
+	out->writeFmt("_ + _ = _\n", Display[V, W, X]);
 }
 
-import Std::Check;
+import std::check;
 
-fun WriteFmt(self: Std::Io::Output, fmt: let byte[], args: Output[]) bool {
+fun writeFmt(self: std::io::Output, fmt: let byte[], args: std::io::Display) bool {
 	let argc = len args;
-	Std::Check::Assert(cond: argc <= 9);
+	std::check::assert(cond: argc <= 9);
 	let length = len fmt - 1;
 	
 	let index = 0;
@@ -47,9 +49,9 @@ fun WriteFmt(self: Std::Io::Output, fmt: let byte[], args: Output[]) bool {
 	while i < length {
 		var success = false;
 		if fmt[i] == '_' and fmt[i+1] != '_' {
-			success = args[index]->WriteTo(out: self);
+			success = args[index]->writeTo(out: self);
 		}else{
-			success = self->Write(fmt[i]);
+			success = self->write(fmt[i]);
 		}
 		
 		if not success {

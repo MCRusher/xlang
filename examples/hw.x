@@ -1,6 +1,6 @@
-import Std::Io;
+import std::io;
 
 entry {
-	var out = Std::Io::StdOutput::Make();
-	out->Write("Hello, World!\n");
+	var out = std::io::StdOutput::make();
+	out->write("Hello, World!\n");
 }
