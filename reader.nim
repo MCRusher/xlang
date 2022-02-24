@@ -106,8 +106,24 @@ proc nextIdentifier*(self: var Reader): Option[string] =
     if self.peek().toLowerAscii() notin id_initial_chars:
         return none(string)
     offset += 1
-    while self.peek(offset).toLowerAscii() in id_chars:
-        offset += 1
+    while true:
+        let c = self.peek(offset).toLowerAscii()
+        if c == '<':
+            offset += 1
+            var depth = 1
+            while depth != 0:
+                let c = self.peek(offset)
+                if c == '<':
+                    depth += 1
+                elif c == '>':
+                    depth -= 1
+                offset += 1
+        elif c == ':' and self.peek(offset+1) == ':':
+            offset += 2
+        elif c in id_chars:
+            offset += 1
+        else:
+            break
     let str = self.peekStr(offset-1)
     self.pos += offset
     return some(str)

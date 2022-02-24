@@ -149,8 +149,8 @@ proc processTemplateImpls(self: var Builder, reporter: var Reporter) =
             self.pos = self.toks.find(IMPL)
             if self.pos == -1:
                 break
-            let data = self.toks[self.pos].data
-            let pos = self.toks[self.pos].pos
+            var data = self.toks[self.pos].data
+            var pos = self.toks[self.pos].pos
             const impl_len = TokenNames[IMPL].len
             var offset = 1
             if self.peekType(offset) != IDENTIFIER:
@@ -158,16 +158,18 @@ proc processTemplateImpls(self: var Builder, reporter: var Reporter) =
                     "Expected template name after 'impl'")
                 break
             
-            let data = self.toks[self.pos + offset].data
-            let pos = self.toks[self.pos + offset].pos
+            data = self.toks[self.pos + offset].data
+            pos = self.toks[self.pos + offset].pos
             let temp_name = self.toks[self.pos + offset].text
-            let name_pos = self.temps.find(temp_name)
-            if name_pos == -1:
+            if not self.temps.hasKey(temp_name):
                 reporter.report(data, pos, temp_name.len,
                     "template name \"{temp_name}\" is invalid.")
                 break outer
+            #would throw an exception if temps does not contain the key
+            let temp = self.temps[temp_name]
+            
             offset += 1
-            while self.peekType(offset) != RPAREN:
+            #[while self.peekType(offset) != RPAREN:
                 let data = self.toks[self.pos + offset].data
                 let pos = self.toks[self.pos + offset].pos
                 if self.peekType(offset) != IDENTIFIER:
@@ -179,7 +181,7 @@ proc processTemplateImpls(self: var Builder, reporter: var Reporter) =
                 offset += 1
                 #a leading comma is allowed
                 if self.peekType(offset) == COMMA:
-                    offset += 1
+                    offset += 1]#
             offset += 1
                 
     self.pos = 0

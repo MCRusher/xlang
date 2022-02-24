@@ -10,7 +10,6 @@ type
         GREATER_EQUALS,
         DEREF,
         ARROW,
-        NAMESPACE,
         NOT_EQUALS,#must be last
 #BEGIN SINGLE OPERATORS
         LCURLY,#must be first
@@ -109,7 +108,6 @@ const TokenNames* = [
     GREATER_EQUALS: ">=",
     DEREF: ".*",
     ARROW: "->",
-    NAMESPACE: "::",
     NOT_EQUALS: "!=",
     
     LCURLY: "{",
