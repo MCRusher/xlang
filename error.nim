@@ -37,4 +37,11 @@ proc report*(self: var Reporter, data: ref Data, pos: Natural, len: Positive, ms
         fgRed, &"{' '.repeat(line_pos)}{'^'.repeat(len)}")
     self.hadError = true
 
+#For Internal Compiler Errors, immediately kill the program after reporting the error
+proc reportICE*(self: var Reporter, data: ref Data, pos: Natural, len: Positive, msg: string) =
+    self.report(data, pos, len, msg)
+    quit()
+
 proc report*(self: var Reporter, data: ref Data, pos: Natural, msg: string) = self.report(data, pos, 1, msg)
+
+proc reportICE*(self: var Reporter, data: ref Data, pos: Natural, msg: string) = self.reportICE(data, pos, 1, msg)

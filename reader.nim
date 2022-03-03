@@ -42,6 +42,18 @@ proc next*(self: var Reader, n: Positive = 1) =
     else:
         self.pos += n
 
+proc nextUInt*(self: var Reader): Option[uint] =
+    var offset = 0
+    if self.peek() == '+':
+        offset += 1
+    if not self.peek(offset).isDigit():
+        return
+    while self.peek(offset).isDigit():
+        offset += 1
+    let num = self.peekStr(offset-1).parseUInt()
+    self.pos += offset
+    return some(num)
+
 const signs = "+-"
 
 proc nextInt*(self: var Reader): Option[int] =
@@ -49,7 +61,7 @@ proc nextInt*(self: var Reader): Option[int] =
     if self.peek() in signs:
         offset += 1
     if not self.peek(offset).isDigit():
-        return none(int)
+        return
     while self.peek(offset).isDigit():
         offset += 1
     let num = self.peekStr(offset-1).parseInt()
@@ -61,16 +73,16 @@ proc nextFloat*(self: var Reader):  Option[float] =
     if self.peek() in signs:
         offset += 1
     if not self.peek(offset).isDigit():
-        return none(float)
+        return
     while self.peek(offset).isDigit():
         offset += 1
     #must have a decimal to be considered a float literal
     if self.peek(offset) != '.':
-        return none(float)
+        return
     offset += 1
     #must have at least one digit after decimal
     if not self.peek(offset).isDigit():
-        return none(float)
+        return
     while self.peek(offset).isDigit():
         offset += 1
     let num = self.peekStr(offset-1).parseFloat()
@@ -80,7 +92,7 @@ proc nextFloat*(self: var Reader):  Option[float] =
 proc nextString*(self: var Reader): Option[string] =
     var offset = 0
     if self.peek() != '"':
-        return none(string)
+        return
     offset += 1
     while true:
         if self.peek(offset) == '\\':
@@ -89,7 +101,7 @@ proc nextString*(self: var Reader): Option[string] =
             offset += 1
             break
         elif self.peek(offset) == EOF:
-            return none(string)
+            return
         else:
             offset += 1
     let str = self.data.src[self.pos + 1 .. self.pos + offset - 2]
@@ -104,7 +116,7 @@ const id_chars = id_initial_chars & "<>" # ` and <...> are special template rela
 proc nextIdentifier*(self: var Reader): Option[string] =
     var offset = 0
     if self.peek().toLowerAscii() notin id_initial_chars:
-        return none(string)
+        return
     offset += 1
     while true:
         let c = self.peek(offset).toLowerAscii()
@@ -142,7 +154,7 @@ proc isValidChar(c: char): bool =
 proc nextBad*(self: var Reader): Option[string] =
     var offset = 0
     if self.peek().isValidChar():
-        return none(string)
+        return
     offset += 1
     while not self.peek(offset).isValidChar():
         offset += 1
@@ -171,30 +183,32 @@ proc readToken*(self: var Reader, reporter: var Reporter): Token =
         return self.readToken(reporter)
     of '"':
         let str = self.nextString()
-        if not str.isSome():
+        if str.isNone():
             reporter.report(self.data, pos, "Unterminated String Literal")
         return makeTok(self.data, pos, str.get())
     else:
         #store starting position of token for error reporting
         if self.peek().isDigit():
+            #try parsing each until somethinf sticks
             let fnum = self.nextFloat()
             if fnum.isSome():
                 return makeTok(self.data, pos, fnum.get())
+            let unum = self.nextUInt()
+            if unum.isSome():
+                return makeTok(self.data, pos, unum.get())
             let inum = self.nextInt()
             if inum.isSome():
                 return makeTok(self.data, pos, inum.get())
             #emit error, should be unreachable
-            reporter.report(self.data, pos,
+            reporter.reportICE(self.data, pos,
                 "Internal Compiler Error: A sequence of digits should always be either an integer or a float")
-            quit()
         else:
             let ident = self.nextIdentifier()
-            if not ident.isSome():
+            if ident.isNone():
                 let bad = self.nextBad()
-                if not bad.isSome():
-                    reporter.report(self.data, pos,
+                if bad.isNone():
+                    reporter.reportICE(self.data, pos,
                         "Internal Compiler Error: If token is not a valid identifier, it should be an invalid token")
-                    quit()
                 reporter.report(self.data, pos, bad.get().len,
                     &"Bad Token \"{bad.get()}\"")
                 return makeTok(self.data, pos, BAD, bad.get())

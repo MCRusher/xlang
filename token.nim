@@ -63,6 +63,7 @@ type
         BAD,#must be last
 #BEGIN LITERAL
         LITINT,#must be first
+        LITUINT,
         LITFLOAT,
         LITBOOL,
         LITSTRING,#must be last
@@ -102,6 +103,8 @@ type
             text*: string
         of LITINT:
             inum*: int
+        of LITUINT:
+            unum*: uint
         of LITFLOAT:
             fnum*: float
         of LITBOOL:
@@ -171,6 +174,8 @@ proc makeTok*(data: ref Data, pos: int, val: string): Token =
     return Token(data: data, pos: pos, kind: LITSTRING, text: val)
 proc makeTok*(data: ref Data, pos: int, val: int): Token =
     return Token(data: data, pos: pos, kind: LITINT, inum: val)
+proc makeTok*(data: ref Data, pos: int, val: uint): Token =
+    return Token(data: data, pos: pos, kind: LITUINT, unum: val)
 proc makeTok*(data: ref Data, pos: int, val: float): Token =
     return Token(data: data, pos: pos, kind: LITFLOAT, fnum: val)
 proc makeTok*(data: ref Data, pos: int, val: bool): Token =
@@ -186,6 +191,8 @@ proc stringVal*(self: Token): string =
         return self.text
     of LITINT:
         return $self.inum
+    of LITUINT:
+        return $self.unum
     of LITFLOAT:
         return $self.fnum
     of LITBOOL:
@@ -206,6 +213,8 @@ proc `$`*(t: Token): string =
         return &"{prefix}{t.kind}: {t.text})"
     of LITINT:
         return &"{prefix}Int: {t.inum})"
+    of LITUINT:
+        return &"{prefix}UInt: {t.unum})"
     of LITFLOAT:
         return &"{prefix}Float: {t.fnum})"
     of LITSTRING:
