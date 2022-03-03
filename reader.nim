@@ -202,6 +202,8 @@ proc readToken*(self: var Reader, reporter: var Reporter): Token =
             if keyword_id != -1:
                 return makeTok(self.data, pos, TokenType(keyword_id))
             else:
+                if TokenType(keyword_id) in [TRUE, FALSE]:
+                    return makeTok(self.data, pos, ident.get() == "true")
                 return makeTok(self.data, pos, IDENTIFIER, ident.get())
 
 #Read all tokens until readToken signals EOT (End Of Tokens), discard EOT

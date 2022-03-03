@@ -55,6 +55,8 @@ type
         WHILE,
         ELIF,
         ELSE,
+        TRUE,
+        FALSE,
         NULL,#must be last
 #BEGIN NAMED
         IDENTIFIER,#must be first
@@ -62,7 +64,8 @@ type
 #BEGIN LITERAL
         LITINT,#must be first
         LITFLOAT,
-        LITSTRING,#must be first
+        LITBOOL,
+        LITSTRING,#must be last
 #END_LITERAL
         EOT,#end of tokens
 const #for clarity
@@ -101,6 +104,8 @@ type
             inum*: int
         of LITFLOAT:
             fnum*: float
+        of LITBOOL:
+            bval*: bool
 
 const TokenNames* = [
     EQUALS_EQUALS: "==",
@@ -153,6 +158,8 @@ const TokenNames* = [
     WHILE: "while",
     ELIF: "elif",
     ELSE: "else",
+    TRUE: "true",
+    FALSE: "false",
     NULL: "null",
 ]
 
@@ -166,6 +173,8 @@ proc makeTok*(data: ref Data, pos: int, val: int): Token =
     return Token(data: data, pos: pos, kind: LITINT, inum: val)
 proc makeTok*(data: ref Data, pos: int, val: float): Token =
     return Token(data: data, pos: pos, kind: LITFLOAT, fnum: val)
+proc makeTok*(data: ref Data, pos: int, val: bool): Token =
+    return Token(data: data, pos: pos, kind: LITBOOL, bval: val)
 
 proc stringVal*(self: Token): string =
     case self.kind
@@ -179,24 +188,29 @@ proc stringVal*(self: Token): string =
         return $self.inum
     of LITFLOAT:
         return $self.fnum
+    of LITBOOL:
+        return $self.bval
     of LITSTRING:
         return &"\"{self.text}\""
     of EOT:#should not be printed
         quit("stringVal called on EOT token")
 
 proc `$`*(t: Token): string =
+    let prefix = "(\"{t.data.name}\":{t.pos}|"
     case t.kind
     of TokenKeywordType.low .. TokenKeywordType.high,
        TokenCompoundOperatorType.low .. TokenCompoundOperatorType.high,
        TokenSingleOperatorType.low .. TokenSingleOperatorType.high:
-        return &"(\"{t.data.name}\":{t.pos}|{t.kind}: {TokenNames[t.kind]})"
+        return &"{prefix}{t.kind}: {TokenNames[t.kind]})"
     of TokenNamedType.low .. TokenNamedType.high:
-        return &"(\"{t.data.name}\":{t.pos}|{t.kind}: {t.text})"
+        return &"{prefix}{t.kind}: {t.text})"
     of LITINT:
-        return &"(\"{t.data.name}\":{t.pos}|Int: {t.inum})"
+        return &"{prefix}Int: {t.inum})"
     of LITFLOAT:
-        return &"(\"{t.data.name}\":{t.pos}|Float: {t.fnum})"
+        return &"{prefix}Float: {t.fnum})"
     of LITSTRING:
-        return &"(\"{t.data.name}\":{t.pos}|String: {t.text})"
+        return &"{prefix}String: {t.text})"
+    of LITBOOL:
+        return &"{prefix}Bool: {t.bval})"
     of EOT:
         return "(EOT)"
