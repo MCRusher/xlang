@@ -11,27 +11,56 @@ import data
 
 #2. process imports
 
+type BasicType = enum
+    INT,
+    UINT,
+    FLOAT,
+    BOOL,
+    PTR,
+
+#C equivalent of X-lang base types
+const BasicNative = [
+  INT: "long long",
+ UINT: "unsigned long long",
+FLOAT: "double",
+ BOOL: "_Bool",
+  PTR: "void*",
+]
+
 type
     TypeDataType = enum
         BASE,
         STRUCT,
         ENUM,
     TypeData = object
-        name: string
+        name*: string
         case kind: TypeDataType
         of BASE:
-            discard
+            what*: BasicType
         of STRUCT:
-            fields: seq[ref TypeData]
+            fields*: seq[ref TypeData]
         of ENUM:
-            values: Table[string, uint]
+            values*: seq[string]#Table[string, uint]
     Builder* = object
         toks*: seq[Token]
-        types: seq[ref TypeData]
+        types*: seq[ref TypeData]
         pos: int
 
+func makeBase*(name: string, what: BasicType): TypeData = TypeData(kind: BASE, name: name, what: what)
+#makes empty struct
+func makeStruct*(name: string): TypeData = TypeData(kind: STRUCT, name: name)
+#makes empty enum
+func makeEnum*(name: string): TypeData = TypeData(kind: ENUM, name: name)
+
 proc makeBuilder*(tokens: sink seq[Token]): Builder =
-    return Builder(toks: tokens, pos: 0)
+    const basic = @[
+        makeBase("int", INT),
+        makeBase("uint", UINT),
+        makeBase("float", FLOAT),
+        makeBase("bool", BOOL),
+        makeBase("ptr", PTR),
+    ]
+    return Builder(toks: tokens, types: basic, pos: 0)
 
 proc find(self: seq[Token], kind: TokenType): int =
     for i in countup(0, self.len-1):
@@ -47,6 +76,7 @@ proc peekType(self: Builder, n: Natural = 0): TokenType =
 
 proc peek(self: Builder, n: Natural = 0): Token =
     if self.pos + n >= self.toks.len:
+        #replace newData with nil later, but I want a more recognizable problem
         return makeTok(newData("",""), 0, EOT)
     else:
         return self.toks[self.pos + n]
@@ -57,6 +87,38 @@ proc next(self: var Builder, n: Positive = 1) =
         self.pos = self.toks.len
     else:
         self.pos = len
+
+func atEnd(self: Builder): bool = self.pos >= self.toks.len
+
+#removes entry blocks from source tokens, should be used on every import
+proc removeEntrys*(self: var Builder, reporter: var Reporter) =
+    while true:
+        self.pos = self.toks.find(ENTRY)
+        if self.pos == -1:
+            break
+        let data = self.toks[self.pos].data
+        let pos = self.toks[self.pos].pos
+        const ent_len = TokenNames[ENTRY].len
+        var offset = 1
+        #should in the future make this delete the entry tag and continue parsing
+        if self.peekType(offset) != LBRACE:
+            reporter.report(data, pos, ent_len,
+                "Expected '{' after 'entry'")
+            break
+        offset += 1
+        var depth = 1
+        while depth != 0 and not self.atEnd():
+            if self.peek(offset) == LBRACE:
+                depth += 1
+            elif self.peek(offset) == RBRACE:
+                depth -= 1
+            offset += 1
+        if depth != 0:
+            reporter.report(data, pos, ent_len,
+                "Unterminated entry block")
+            break
+        self.toks.delete(self.pos .. self.pos + offset - 1)
+    self.pos = 0
 
 proc processImports*(self: var Builder, reporter: var Reporter) =
     var names: seq[string]
@@ -88,12 +150,15 @@ proc processImports*(self: var Builder, reporter: var Reporter) =
         try:
             let src = readFile(system_filename)
             var rd = makeReader(system_filename, src)
-            #make this recursive instead, merge-sort-ish style
             var builder = makeBuilder(rd.readTokens(reporter))
-            #builder.processTemplateDefs(reporter)
-            #recursively handles stuff and things
             builder.processImports(reporter)
-            #builder.processTemplateImpls(reporter)#needs to add to self, not builder, or just merge the two
+            if reporter.hadError:
+                break
+            #doesn't need to loop since it's called recursively
+            # (should make multiple entry blocks an error
+            builder.removeEntrys(reporter)
+            if reporter.hadError:
+                break
             self.toks.insert(builder.toks, self.pos)
         except IOError:
             reporter.report(data, pos, imp_len,
@@ -101,77 +166,47 @@ proc processImports*(self: var Builder, reporter: var Reporter) =
             break
     self.pos = 0
 
-type
-    Unit {.inheritable.} = object
-        discard
-    Statement = object of Unit
-        discard
-    Expression = object of Unit
-        discard
-    Program = object
-        stmts: seq[ref Statement]
-    Identifier = object
-        tok: Token
-    Declaration = object of Statement
-        tok: Token
-        name: ref Identifier
-        val: ref Expression
-    Field = tuple
-        name: ref Identifier
-        kind: int
-    Struct = object of Statement
-        tok: Token
-        name: ref Identifier
-        fields: seq[Field]
-
-proc nextProgram(self: var Builder, reporter: var Reporter): Option[Program] =
+proc parseEnums(self: var Builder, reporter: var Reporter) =
     while true:
-        let tok = self.peek()
-        if tok.kind == EOT:
+        self.pos = self.toks.find(ENUM)
+        if self.pos == -1:
             break
-        var stmt: ref Statement
-        case tok.kind
-        of LET, VAR, CONST:
-            stmt = self.nextDeclaration()
-        of RETURN:
-            stmt = self.nextReturn()
-        of IF:
-            stmt = self.nextIf()
-        if stmt.isNone():
-            reporter.report(tok.data, tok.pos, "Bad Statement (TODO Better Error Message)")
-            return
-        self.stmts.add(stmt)
-            
-
-proc nextDeclaration(self: var Builder): ref Statement =
-    if self.peekType() notin [LET, VAR, CONST]:
-        return
-    var decl = new Declaration
-    #type is specified (can be known now)
-    var offset = 1
-    if self.peekType(offset) == COLON:
+        let data = self.toks[self.pos].data
+        let pos = self.toks[self.pos].pos
+        const enum_len = TokenNames[ENUM].len
+        var offset = 1
+        if self.peekType(offset) != IDENTIFIER:
+            reporter.report(data, pos, enum_len,
+                "Expected name after 'enum'")
+            break
+        let name = self.peek(offset).text
+        var enum_type = makeEnum(name)
         offset += 1
-        if not self.peekType(offset) == IDENTIFIER:
-            return
-        let tok = self.peek(offset)
+        if self.peekType(offset) != LCURLY:
+            reporter.report(data, pos, enum_len,
+                "Expected '{' after 'enum <name>'")
         offset += 1
-        #search for the type
-        if not self.types.hasKey(tok.text):
-            return
-        let data = self.types[tok.text]
-        #figure out pointer-level of type
-        var plevel = 0
-        while self.peekType(offset) == REF:
+        while self.peekType(offset) == IDENTIFIER:
+            let tok = self.peek(offset)
             offset += 1
-            plvelel += 1
-        if not self.peekType(offset) == EQUALS:
-            return
-proc parseAST*(self: var Builder, reporter: var Reporter) =
-    discard
-    
+            if self.peekType(offset) != COMMA:
+                reporter.report(tok.data, tok.pos, tok.text.len,
+                    "Expected ',' after enum value")
+                break
+            enum_type.values.add(tok.text)
+            offset += 1
+        if self.peekType(offset) != RCURLY:
+            reporter.report(data, pos, enum_len,
+                "Unterminated enum block")
+        offset += 1
+        self.types.add(enum_type)
+        self.toks.delete(self.pos .. self.pos + offset - 1)
+    self.pos = 0
 
-proc build*(self: var Builder, reporter: var Reporter) =
-        #Ignore complicated 3-fold recursion problem for now
-        #self.processTemplateDefs(reporter)
-        self.processImports(reporter)
-        #self.processTemplateImpls(reporter)
+proc build(self: var Builder, reporter: var Reporter) =
+    self.processImports(reporter)
+    if reporter.hadError:
+        return
+    self.parseEnums(reporter)
+    if reporter.hadError:
+        return
