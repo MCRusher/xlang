@@ -315,7 +315,7 @@ proc processFunc(self: var Builder, reporter: var Reporter): string =
     if self.peekType(offset) != IDENTIFIER:
         reporter.report(data, pos, TokenNames[FUN].len, "Expected name after 'fun'")
         return
-    let fname = self.peek(offset).text
+    let fname = self.peek(offset).text.replace("::", "__")
     offset += 1
     if self.peekType(offset) != LPAREN:
         reporter.report(data, pos, TokenNames[FUN].len, "Expected '(' after 'fun <name>'")
