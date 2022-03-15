@@ -237,8 +237,13 @@ proc processBody(self: var Builder, reporter: var Reporter, off: int): string =
             result.add('\t')
         if self.peekType(offset) == LCURLY:
             depth += 1
+            result.add('{')
+            offset += 1
         elif self.peekType(offset) == RCURLY:
             depth -= 1
+            if depth != 0:
+                result.add('}')
+            offset += 1
         elif self.peekType(offset) == VAR:
             let data = self.toks[self.pos].data
             let pos = self.toks[self.pos].pos
@@ -301,20 +306,96 @@ proc processEntry(self: var Builder, reporter: var Reporter): string =
         return
     return self.processBody(reporter, 1)
     
-#[
-proc processFuncs(self: var Builder, reporter: var Reporter): string =
-    while true:
-        self.pos = self.toks.find(FUN)
-        let data = self.toks[self.pos].data
-        let pos = self.toks[self.pos].pos
-        var offset = 1
+
+proc processFunc(self: var Builder, reporter: var Reporter): string =
+    self.pos = self.toks.find(FUN)
+    let data = self.toks[self.pos].data
+    let pos = self.toks[self.pos].pos
+    var offset = 1
+    if self.peekType(offset) != IDENTIFIER:
+        reporter.report(data, pos, TokenNames[FUN].len, "Expected name after 'fun'")
+        return
+    let fname = self.peek(offset).text
+    offset += 1
+    if self.peekType(offset) != LPAREN:
+        reporter.report(data, pos, TokenNames[FUN].len, "Expected '(' after 'fun <name>'")
+        return
+    offset += 1
+    var args: string
+    #make depth-based later since fun pointers should be a thing
+    while self.peekType(offset) != RPAREN and not self.atEnd():
         if self.peekType(offset) != IDENTIFIER:
-            reporter.report(data, pos, TokenNames[FUN].len, "Expected name after 'fun'")
+            reporter.report(data, pos, "Expected argument name")
+            return
+        let name = self.peek(offset).text
+        offset += 1
+        if self.peekType(offset) != COLON:
+            reporter.report(data, pos, "Expected colon after argument name")
             return
         offset += 1
-        if self.peekType(offset) != 
-    self.pos = 0
-]#
+        if self.peekType(offset) != IDENTIFIER:
+            reporter.report(data, pos, "Expected type after argument name")
+            return
+        let kind = self.peek(offset).text
+        var td: TypeData
+        for t in self.types:
+            if t.name == kind:
+                td = t
+                break
+        if td == nil:
+            reporter.report(data, pos, TokenNames[FUN].len, "Invalid type '{kind}'")
+            return
+        offset += 1
+        if args.len > 0:
+            args.add(", ")
+        #write resolved type to output
+        case td.kind
+        of BASE:
+            args.add(BasicNative[td.what])
+        of STRUCT:
+            args.add(&"struct {td.name}")
+        of ENUM:
+            args.add(&"enum {td.name}")
+        while self.peekType(offset) == REF:
+            args.add('*')
+            offset += 1
+        args.add(' ')
+        args.add(name)
+    if self.peekType(offset) != RPAREN:
+        reporter.report(data, pos, TokenNames[FUN].len, "Expected ')' after 'fun <name<(...'")
+        return
+    offset += 1
+    var ret_val = "void"
+    if self.peekType(offset) == IDENTIFIER:
+        let rkind = self.peek(offset).text
+        var td: TypeData
+        for t in self.types:
+            if t.name == rkind:
+                td = t
+                break
+        if td == nil:
+            reporter.report(data, pos, TokenNames[FUN].len, "Invalid (return) type '{rkind}'")
+            return
+        offset += 1
+        #write resolved type to output
+        case td.kind
+        of BASE:
+            ret_val = BasicNative[td.what]
+        of STRUCT:
+            ret_val = &"struct {td.name}"
+        of ENUM:
+            ret_val = &"enum {td.name}"
+    echo &"ret_val: \"{ret_val}\""
+    echo &"args: \"{args}\""
+    echo &"fname: \"{fname}\""
+    let body = self.processBody(reporter, offset)
+    return &"""
+{ret_val} {fname}({args}) {{
+    {body}
+}}
+"""
+    #self.pos = 0
+
 
 proc build*(self: var Builder, reporter: var Reporter): string =
     self.processImports(reporter)
@@ -328,10 +409,19 @@ proc build*(self: var Builder, reporter: var Reporter): string =
     if reporter.hadError:
         return
     
+    var funcs: string
+    while self.toks.find(FUN) != -1:
+        funcs.add(self.processFunc(reporter))
+        funcs.add('\n')
+        if reporter.hadError:
+            return
+    
     let program = &"""
 #include <stdlib.h>
 
 {types}
+
+{funcs}
 
 void entry(void) {{
 {entry}
