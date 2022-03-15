@@ -59,7 +59,7 @@ echo "-----------------------------"
 #create new builder and give it the tokens lexed from the data
 var builder = makeBuilder(tokens)
 #parse tokens into build data
-builder.build(reporter)
+let program = builder.build(reporter)
 
 #print tokens after parsing, for debugging purposes
 echo "-----------[Parse]-----------"
@@ -70,3 +70,9 @@ echo "-----------------------------"
 #critical errors (like ICEs) will already have called quit before this point
 if reporter.hadError:
     quit()
+
+echo "-----------[Output]-----------"
+echo program
+echo "-----------------------------"
+
+writeFile(filename&".c", program)

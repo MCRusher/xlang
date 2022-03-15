@@ -45,6 +45,7 @@ type
         TEMPLATE,
         RETURN,
         STRUCT,
+        ENUM,
         PUBLIC,
         TRAIT,
         IMPORT,
@@ -151,6 +152,7 @@ const TokenNames* = [
     TEMPLATE: "template",
     RETURN: "return",
     STRUCT: "struct",
+    ENUM: "enum",
     PUBLIC: "public",
     TRAIT: "trait",
     IMPORT: "import",
@@ -203,7 +205,7 @@ proc stringVal*(self: Token): string =
         quit("stringVal called on EOT token")
 
 proc `$`*(t: Token): string =
-    let prefix = "(\"{t.data.name}\":{t.pos}|"
+    let prefix = &"(\"{t.data.name}\":{t.pos}|"
     case t.kind
     of TokenKeywordType.low .. TokenKeywordType.high,
        TokenCompoundOperatorType.low .. TokenCompoundOperatorType.high,

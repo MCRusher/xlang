@@ -32,18 +32,18 @@ type
         BASE,
         STRUCT,
         ENUM,
-    TypeData = object
+    TypeData = ref object
         name*: string
         case kind: TypeDataType
         of BASE:
             what*: BasicType
         of STRUCT:
-            fields*: seq[ref TypeData]
+            fields*: seq[TypeData]
         of ENUM:
             values*: seq[string]#Table[string, uint]
     Builder* = object
         toks*: seq[Token]
-        types*: seq[ref TypeData]
+        types*: seq[TypeData]
         pos: int
 
 func makeBase*(name: string, what: BasicType): TypeData = TypeData(kind: BASE, name: name, what: what)
@@ -53,7 +53,7 @@ func makeStruct*(name: string): TypeData = TypeData(kind: STRUCT, name: name)
 func makeEnum*(name: string): TypeData = TypeData(kind: ENUM, name: name)
 
 proc makeBuilder*(tokens: sink seq[Token]): Builder =
-    const basic = @[
+    let basic = @[
         makeBase("int", INT),
         makeBase("uint", UINT),
         makeBase("float", FLOAT),
@@ -101,16 +101,16 @@ proc removeEntrys*(self: var Builder, reporter: var Reporter) =
         const ent_len = TokenNames[ENTRY].len
         var offset = 1
         #should in the future make this delete the entry tag and continue parsing
-        if self.peekType(offset) != LBRACE:
+        if self.peekType(offset) != LCURLY:
             reporter.report(data, pos, ent_len,
                 "Expected '{' after 'entry'")
             break
         offset += 1
         var depth = 1
         while depth != 0 and not self.atEnd():
-            if self.peek(offset) == LBRACE:
+            if self.peekType(offset) == LCURLY:
                 depth += 1
-            elif self.peek(offset) == RBRACE:
+            elif self.peekType(offset) == RCURLY:
                 depth -= 1
             offset += 1
         if depth != 0:
@@ -168,12 +168,12 @@ proc processImports*(self: var Builder, reporter: var Reporter) =
 
 proc parseEnums(self: var Builder, reporter: var Reporter) =
     while true:
-        self.pos = self.toks.find(ENUM)
+        self.pos = self.toks.find(TokenType.ENUM)
         if self.pos == -1:
             break
         let data = self.toks[self.pos].data
         let pos = self.toks[self.pos].pos
-        const enum_len = TokenNames[ENUM].len
+        const enum_len = TokenNames[TokenType.ENUM].len
         var offset = 1
         if self.peekType(offset) != IDENTIFIER:
             reporter.report(data, pos, enum_len,
@@ -203,10 +203,125 @@ proc parseEnums(self: var Builder, reporter: var Reporter) =
         self.toks.delete(self.pos .. self.pos + offset - 1)
     self.pos = 0
 
-proc build(self: var Builder, reporter: var Reporter) =
+proc processTypes(self: Builder): string =
+    for t in self.types:
+        case t.kind:
+        of BASE:
+            discard
+        of STRUCT:
+            discard#todo
+        of ENUM:
+            result.add("enum ")
+            result.add(t.name)
+            result.add(" {\n")
+            for i in countup(0, t.values.len-1):
+                result.add(&"\t{t.values[i]}")
+                if i != t.values.len-1:
+                    result.add(',')
+                result.add('\n')
+            result.add("};\n")
+
+proc processEntry(self: var Builder, reporter: var Reporter): string =
+    self.pos = self.toks.find(ENTRY)
+    if self.pos == -1:        
+        reporter.reportBroad("<main module>", "Expected entry block in main module")
+        return
+    let data = self.toks[self.pos].data
+    let pos = self.toks[self.pos].pos
+    var offset = 1
+    if self.peekType(offset) != LCURLY:
+        reporter.report(data, pos, TokenNames[ENTRY].len, "Expected '{' after 'entry'")
+        return
+    offset += 1
+    #begin processing body
+    var depth = 1 
+    while depth != 0 and not self.atEnd():
+        for i in countup(0, depth-1):
+            result.add('\t')
+        if self.peekType(offset) == LCURLY:
+            depth += 1
+        elif self.peekType(offset) == RCURLY:
+            depth -= 1
+        elif self.peekType(offset) == VAR:
+            let data = self.toks[self.pos].data
+            let pos = self.toks[self.pos].pos
+            offset += 1
+            if self.peekType(offset) != IDENTIFIER:
+                reporter.report(data, pos, TokenNames[VAR].len, "Expected variable name after 'var'")
+                return
+            let name = self.peek(offset).text
+            offset += 1
+            if self.peekType(offset) != COLON:
+                reporter.report(data, pos, TokenNames[VAR].len, "Expected ':' after 'var <name>'")
+                return
+            offset += 1
+            if self.peekType(offset) != IDENTIFIER:
+                reporter.report(data, pos, TokenNames[VAR].len, "Expected type after 'var <name>:'")
+                return
+            let kind = self.peek(offset).text
+            var td: TypeData
+            for t in self.types:
+                if t.name == kind:
+                    td = t
+                    break
+            if td == nil:
+                reporter.report(data, pos, TokenNames[VAR].len, "Invalid type '{kind}'")
+                return
+            offset += 1
+            #write resolved type to output
+            case td.kind
+            of BASE:
+                result.add(BasicNative[td.what])
+            of STRUCT:
+                result.add(&"struct {td.name}")
+            of ENUM:
+                result.add(&"enum {td.name}")
+            result.add(' ')
+            result.add(name)
+            result.add(' ')
+            if self.peekType(offset) == SEMICOLON:
+                result.add("= {0}")
+            else:
+                while self.peekType(offset) != SEMICOLON and not self.atEnd():
+                    result.add(self.peek(offset).stringVal())
+                    if self.peekType(offset+1) != SEMICOLON:
+                        result.add(' ')                    
+                    offset += 1
+                if self.atEnd():
+                    reporter.report(data, pos, TokenNames[VAR].len, "Unterminated variable declaration-assignment")
+                    return
+            result.add(";\n")
+            offset += 1
+        else:
+            result.add(self.peek(offset).stringVal())
+            offset += 1
+
+proc build*(self: var Builder, reporter: var Reporter): string =
     self.processImports(reporter)
     if reporter.hadError:
         return
     self.parseEnums(reporter)
     if reporter.hadError:
         return
+    let types = self.processTypes()
+    let entry = self.processEntry(reporter)
+    if reporter.hadError:
+        return
+    
+    let program = &"""
+#include <stdlib.h>
+
+{types}
+
+void entry(void) {{
+{entry}
+}}
+
+int main(int argc, char** argv) {{
+    entry();
+    exit(EXIT_SUCCESS);
+}}
+"""
+    
+    
+    return program

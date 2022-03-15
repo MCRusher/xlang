@@ -45,3 +45,10 @@ proc reportICE*(self: var Reporter, data: ref Data, pos: Natural, len: Positive,
 proc report*(self: var Reporter, data: ref Data, pos: Natural, msg: string) = self.report(data, pos, 1, msg)
 
 proc reportICE*(self: var Reporter, data: ref Data, pos: Natural, msg: string) = self.reportICE(data, pos, 1, msg)
+
+#For errors that aren't associated with a specific location in a file/token data
+proc reportBroad*(self: var Reporter, file: string, msg: string) =
+    stdout.styledWriteLine(
+        fgRed, "Error",
+        resetStyle, &"[\"{file}\"]: {msg}")
+    self.hadError = true

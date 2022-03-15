@@ -213,12 +213,12 @@ proc readToken*(self: var Reader, reporter: var Reporter): Token =
                     &"Bad Token \"{bad.get()}\"")
                 return makeTok(self.data, pos, BAD, bad.get())
             let keyword_id = TokenNames.find(ident.get())
-            if keyword_id != -1:
-                return makeTok(self.data, pos, TokenType(keyword_id))
-            else:
-                if TokenType(keyword_id) in [TRUE, FALSE]:
-                    return makeTok(self.data, pos, ident.get() == "true")
+            if keyword_id == -1:
                 return makeTok(self.data, pos, IDENTIFIER, ident.get())
+            elif TokenType(keyword_id) in [TRUE, FALSE]:
+                return makeTok(self.data, pos, ident.get() == "true")
+            return makeTok(self.data, pos, TokenType(keyword_id))
+                
 
 #Read all tokens until readToken signals EOT (End Of Tokens), discard EOT
 proc readTokens*(self: var Reader, reporter: var Reporter): seq[Token] =
