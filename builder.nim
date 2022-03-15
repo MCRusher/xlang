@@ -221,14 +221,11 @@ proc processTypes(self: Builder): string =
                 result.add('\n')
             result.add("};\n")
 
-proc processEntry(self: var Builder, reporter: var Reporter): string =
-    self.pos = self.toks.find(ENTRY)
-    if self.pos == -1:        
-        reporter.reportBroad("<main module>", "Expected entry block in main module")
-        return
+proc processBody(self: var Builder, reporter: var Reporter, off: int): string =
+    var offset = off
     let data = self.toks[self.pos].data
     let pos = self.toks[self.pos].pos
-    var offset = 1
+    #offset += 1
     if self.peekType(offset) != LCURLY:
         reporter.report(data, pos, TokenNames[ENTRY].len, "Expected '{' after 'entry'")
         return
@@ -295,6 +292,29 @@ proc processEntry(self: var Builder, reporter: var Reporter): string =
         else:
             result.add(self.peek(offset).stringVal())
             offset += 1
+    self.toks.delete(self.pos .. self.pos + offset - 1)
+
+proc processEntry(self: var Builder, reporter: var Reporter): string =
+    self.pos = self.toks.find(ENTRY)
+    if self.pos == -1:        
+        reporter.reportBroad("<main module>", "Expected entry block in main module")
+        return
+    return self.processBody(reporter, 1)
+    
+#[
+proc processFuncs(self: var Builder, reporter: var Reporter): string =
+    while true:
+        self.pos = self.toks.find(FUN)
+        let data = self.toks[self.pos].data
+        let pos = self.toks[self.pos].pos
+        var offset = 1
+        if self.peekType(offset) != IDENTIFIER:
+            reporter.report(data, pos, TokenNames[FUN].len, "Expected name after 'fun'")
+            return
+        offset += 1
+        if self.peekType(offset) != 
+    self.pos = 0
+]#
 
 proc build*(self: var Builder, reporter: var Reporter): string =
     self.processImports(reporter)
